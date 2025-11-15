@@ -293,8 +293,9 @@ class OctoImage extends StatefulWidget {
 }
 
 class _OctoImageState extends State<OctoImage> {
-  ImageHandler? _previousHandler;
+  ImageHandler? _retainedPreviousHandler;
   late ImageHandler _imageHandler;
+  bool _gaplessPlaceholderActive = false;
 
   @override
   void initState() {
@@ -320,28 +321,63 @@ class _OctoImageState extends State<OctoImage> {
       matchTextDirection: widget.matchTextDirection,
       filterQuality: widget.filterQuality,
       alwaysShowPlaceHolder: false,
+      onImageShown: null,
     );
   }
 
   @override
   void didUpdateWidget(OctoImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.image != widget.image) {
-      if (widget.gaplessPlayback) {
-        _previousHandler = _imageHandler;
-        _previousHandler?.alwaysShowPlaceHolder = false;
-      } else {
-        _previousHandler = null;
-      }
+    final bool imageChanged = oldWidget.image != widget.image;
+
+    if (imageChanged) {
+      _retainedPreviousHandler = widget.gaplessPlayback ? _imageHandler : null;
+      _retainedPreviousHandler?.alwaysShowPlaceHolder = false;
+
+      final ImageHandler? previousHandler = _retainedPreviousHandler;
+      _gaplessPlaceholderActive = previousHandler != null;
+
+      _imageHandler = ImageHandler(
+        image: widget.image,
+        imageBuilder: widget.imageBuilder,
+        placeholderBuilder: previousHandler != null
+            ? previousHandler.build
+            : widget.placeholderBuilder,
+        progressIndicatorBuilder:
+            previousHandler != null ? null : widget.progressIndicatorBuilder,
+        errorBuilder: widget.errorBuilder,
+        placeholderFadeInDuration: widget.placeholderFadeInDuration,
+        fadeOutDuration: widget.fadeOutDuration,
+        fadeOutCurve: widget.fadeOutCurve,
+        fadeInDuration: widget.fadeInDuration,
+        fadeInCurve: widget.fadeInCurve,
+        fit: widget.fit,
+        width: widget.width,
+        height: widget.height,
+        alignment: widget.alignment,
+        repeat: widget.repeat,
+        color: widget.color,
+        colorBlendMode: widget.colorBlendMode,
+        matchTextDirection: widget.matchTextDirection,
+        filterQuality: widget.filterQuality,
+        alwaysShowPlaceHolder: _gaplessPlaceholderActive,
+        onImageShown: _gaplessPlaceholderActive ? _handleGaplessComplete : null,
+      );
+      return;
     }
-    _imageHandler = ImageHandler(
-      image: widget.image,
+
+    final OctoPlaceholderBuilder? placeholderBuilder = _gaplessPlaceholderActive
+        ? _imageHandler.placeholderBuilder
+        : widget.placeholderBuilder;
+    final OctoProgressIndicatorBuilder? progressIndicatorBuilder =
+        _gaplessPlaceholderActive
+            ? _imageHandler.progressIndicatorBuilder
+            : widget.progressIndicatorBuilder;
+
+    _imageHandler.update(
       imageBuilder: widget.imageBuilder,
-      placeholderBuilder: _previousHandler != null
-          ? _previousHandler!.build
-          : widget.placeholderBuilder,
-      progressIndicatorBuilder:
-          _previousHandler != null ? null : widget.progressIndicatorBuilder,
+      placeholderBuilder: placeholderBuilder,
+      progressIndicatorBuilder: progressIndicatorBuilder,
       errorBuilder: widget.errorBuilder,
       placeholderFadeInDuration: widget.placeholderFadeInDuration,
       fadeOutDuration: widget.fadeOutDuration,
@@ -357,8 +393,41 @@ class _OctoImageState extends State<OctoImage> {
       colorBlendMode: widget.colorBlendMode,
       matchTextDirection: widget.matchTextDirection,
       filterQuality: widget.filterQuality,
-      alwaysShowPlaceHolder: _previousHandler != null,
+      alwaysShowPlaceHolder: _gaplessPlaceholderActive,
+      onImageShown: _gaplessPlaceholderActive ? _handleGaplessComplete : null,
     );
+  }
+
+  void _handleGaplessComplete() {
+    if (!_gaplessPlaceholderActive || !mounted) {
+      return;
+    }
+    setState(() {
+      _gaplessPlaceholderActive = false;
+      _retainedPreviousHandler = null;
+      _imageHandler.update(
+        imageBuilder: widget.imageBuilder,
+        placeholderBuilder: widget.placeholderBuilder,
+        progressIndicatorBuilder: widget.progressIndicatorBuilder,
+        errorBuilder: widget.errorBuilder,
+        placeholderFadeInDuration: widget.placeholderFadeInDuration,
+        fadeOutDuration: widget.fadeOutDuration,
+        fadeOutCurve: widget.fadeOutCurve,
+        fadeInDuration: widget.fadeInDuration,
+        fadeInCurve: widget.fadeInCurve,
+        fit: widget.fit,
+        width: widget.width,
+        height: widget.height,
+        alignment: widget.alignment,
+        repeat: widget.repeat,
+        color: widget.color,
+        colorBlendMode: widget.colorBlendMode,
+        matchTextDirection: widget.matchTextDirection,
+        filterQuality: widget.filterQuality,
+        alwaysShowPlaceHolder: false,
+        onImageShown: null,
+      );
+    });
   }
 
   @override
